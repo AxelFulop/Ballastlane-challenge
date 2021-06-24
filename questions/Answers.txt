@@ -1,0 +1,67 @@
+a) It will depend where we want to put the cache and which serverless service we want to use
+for example we can implement cache with ElastiCache service with a Lambda function, another
+posibility with lambda is storing static files in /tmp directory, where we can re use objects, and 
+also outside hadler to re use it. If we are talking about a database like DynamoDB we can use an
+specific accelerator like DAX or Redix, if not Dynamo db could use ElastiCache too or an EC2 instance
+to work like a cache. The idea of caching in serverless is to make the calls faster and avoid overload
+for this propurse the data is caching in an intermidate database, if the data is not there then we have
+to search it in the database called no hit and the data will be written in the mem cache, but if we try again it will come in a hit because
+again the data will be come very quicly and it will be a hit, because the data will be in the mem cache.
+    For api gateway cache there is an option called caching where you can reduce the number of call using
+a time to live period, so api gateway will check the endpoint response from the cache instead of making 
+a new request to the endpoint.So when the path variable arrive, then if was called befere and the time to live
+still alive, then the endpoint will not be called instead of that, will use the response saved in the cache
+
+For example:
+
+custom:
+  apiGatewayCaching:
+    enabled: true
+
+functions:
+  get-cat-by-paw-id:
+    handler: rest_api/cat/get/handler.handle
+    events:
+      - http:
+          path: /cats/{pawId}
+          method: get
+          caching:
+            enabled: true
+            cacheKeyParameters:
+              - name: request.path.pawId
+              - name: request.querystring.catName
+
+
+
+b) If we have for example test, dev and prod and we are using Lambda + API gateway, i will use
+stage variables for each env, so i will have my api gateway with three stages. One called test, another
+one called dev and the last one called prod. So i will a have proxy integration for the methods, and
+the lambda will point to lambdaName.envAlias. When i have my lambda created, i will create three aliases
+and three versions, one for each env. So i will have each env in each stage. If you want to have each env
+separeted from each other, i will have each of them in a different account. To deploy it should have different
+confinguration for each env but if we have multiple projects with the same resources, just use the same conf for all of them
+, so if the env var is dev it will be a script with dev resources, if th env var is prod
+it will be a different script with prod resources to deploy the env in prod, but if 
+dev and prod env are pritty similar and only change names like dev-database or prod-database the 
+confing should be the same and the only change should be then env name. 
+If we have sensible info like usernames,password, database info, etc should be stored in secrets manager
+never the sensible data have to be explict in the code, also configuration should be separeted of code.
+
+For example:
+provider:
+  name: aws
+  environment:
+    MY_SECRET: ${file(../config.${opt:stage, 'dev'}.json):CREDS}
+
+
+c)
+components:
+  Api:
+    type: rest-api
+    inputs:
+      gateway: aws-apigateway
+      routes:
+        /test:
+          post:
+            uri: myinstanceurl.com/test
+            cors: true
